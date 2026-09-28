@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	requester "jr_requester/jr_requester"
+	requester "github.com/JuniorVieira99/go_jr_requester/jr_requester"
 	"log/slog"
 	"net/http"
 	"net/http/cookiejar"

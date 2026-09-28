@@ -1,6 +1,7 @@
 # jr_requester
 
 [![CI](https://github.com/JuniorVieira99/go_jr_requester/actions/workflows/ci.yml/badge.svg)](https://github.com/JuniorVieira99/go_jr_requester/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/JuniorVieira99/go_jr_requester/jr_requester.svg)](https://pkg.go.dev/github.com/JuniorVieira99/go_jr_requester/jr_requester)
 
 A configurable HTTP client for Go. It wraps `net/http` with explicit control
 over connection pooling, retries, redirects, proxies and TLS, adds concurrent
@@ -55,23 +56,28 @@ batch requests, and returns a response type that is hard to leak.
 
 ## Requirements
 
-Go 1.26.5 or newer, as pinned by `go.mod`. The library uses
+Go 1.26 or newer, as set by `go.mod`. The library uses
 `sync.WaitGroup.Go` (1.25), `slog.DiscardHandler` (1.24) and
 `http.Transport.Protocols` (1.24).
 
 ## Installation
 
-The module is `jr_requester`, so the package imports as:
-
-```go
-import requester "jr_requester/jr_requester"
+```sh
+go get github.com/JuniorVieira99/go_jr_requester@latest
 ```
 
-It is not published yet. To use it from another module, vendor it or point at
-a local checkout:
+The package lives in the `jr_requester` directory of the module. Its name is
+`jr_requester`, and the examples below import it as `requester`:
+
+```go
+import requester "github.com/JuniorVieira99/go_jr_requester/jr_requester"
+```
+
+To work against a local checkout instead of a published version, point the
+module at it with a `replace` directive:
 
 ```sh
-go mod edit -replace jr_requester=../JrRequester
+go mod edit -replace github.com/JuniorVieira99/go_jr_requester=../JrRequester
 ```
 
 ## Quick start
@@ -83,7 +89,7 @@ import (
     "context"
     "fmt"
 
-    requester "jr_requester/jr_requester"
+    requester "github.com/JuniorVieira99/go_jr_requester/jr_requester"
 )
 
 type Post struct {
@@ -217,7 +223,7 @@ The settings are copied on the way in, so retuning what you passed to
 | `Shutdown()` | Kill switch: cancels every in-flight request and retires the connection for good. |
 | `IsShutdown() bool` | Whether `Shutdown` has been called. |
 | `InFlight() int` | Requests whose body is still open — what `Shutdown` would cancel now. |
-| `Status() ConnectionStatus` | `Disconnected`, `Connected`, `Idle` or `ShutDown`. |
+| `Status() ConnectionStatus` | `Disconnected`, `Connected` or `ShutDown`. |
 | `GetRestHandler() *RestHandler` | The verb helpers. |
 | `GetCompressionHandler() *CompressionHandler` | The compression policy and gzip/zlib helpers. |
 | `GetMiddleware() *MiddlewareStack` | The live middleware chain. |
@@ -757,7 +763,7 @@ How they behave:
 All are usable with `errors.Is`. `*StatusError` works with `errors.As`.
 
 ```go
-type ConnectionStatus int  // Disconnected, Updating, Connected, Idle, ShutDown
+type ConnectionStatus int  // Disconnected, Connected, ShutDown
 type LogLevel string       // INFO, DEBUG, WARNING, ERROR
 type HTTPMethod string     // GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS
 type ApiKey struct { Header, Value string } // the header a key is sent in
@@ -980,8 +986,7 @@ whether reuse is actually happening.
   at construction, not by retuning settings afterwards.
 - **`Status()` is informational.** Only three things move it: a successful
   `ConnectionWarmUp` sets `Connected`, `Close()` sets `Disconnected`, and
-  `Shutdown()` sets `ShutDown` permanently. Ordinary requests do not touch it,
-  and `Idle` and `Updating` are never set.
+  `Shutdown()` sets `ShutDown` permanently. Ordinary requests do not touch it.
 
 ---
 
@@ -999,7 +1004,7 @@ unexported fields.
 
 | File | Covers |
 | --- | --- |
-| `helpers_test.go` | Shared fixtures: `newTestConn`, `serve`, `closeBodies`. |
+| `helpers_test.go` | Shared fixtures: `newTestConn`, `serve`, `serveCountingConns`, `closeBodies`. |
 | `connection_test.go` | Batching, retries, header injection, warm-up, redirects, settings, metrics. |
 | `options_test.go` | Option validation, ordering, error collection, `WithSettings` rules, API keys. |
 | `response_test.go` | Body helpers, size limits, streaming, status errors, nil-safety, TLS defaults. |
@@ -1068,3 +1073,9 @@ benchmark after them fails to dial. `-short` skips those two, so use it for
 ## Known limitations
 
 - Retry backoff is a fixed delay — no exponential backoff or jitter.
+
+---
+
+## License
+
+MIT. See [LICENSE](LICENSE).

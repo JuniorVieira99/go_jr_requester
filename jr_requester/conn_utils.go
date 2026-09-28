@@ -18,9 +18,7 @@ type ConnectionStatus int
 
 const (
 	Disconnected ConnectionStatus = iota
-	Updating
 	Connected
-	Idle
 	// ShutDown is terminal: the connection was killed by Connection.Shutdown
 	// and will not serve another request.
 	ShutDown
@@ -30,12 +28,8 @@ func (cs ConnectionStatus) String() string {
 	switch cs {
 	case Connected:
 		return "Connected"
-	case Idle:
-		return "Idle"
 	case Disconnected:
 		return "Disconnected"
-	case Updating:
-		return "Updating"
 	case ShutDown:
 		return "ShutDown"
 	default:

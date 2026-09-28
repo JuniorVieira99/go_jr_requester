@@ -2,7 +2,7 @@ package bench
 
 import (
 	"bytes"
-	requester "jr_requester/jr_requester"
+	requester "github.com/JuniorVieira99/go_jr_requester/jr_requester"
 	"testing"
 )
 
