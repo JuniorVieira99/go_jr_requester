@@ -1,5 +1,7 @@
 # jr_requester
 
+[![CI](https://github.com/JuniorVieira99/go_jr_requester/actions/workflows/ci.yml/badge.svg)](https://github.com/JuniorVieira99/go_jr_requester/actions/workflows/ci.yml)
+
 A configurable HTTP client for Go. It wraps `net/http` with explicit control
 over connection pooling, retries, redirects, proxies and TLS, adds concurrent
 batch requests, and returns a response type that is hard to leak.
@@ -1009,6 +1011,26 @@ unexported fields.
 
 All but `conn_test.go` use `httptest` servers and real TCP listeners, so they
 need no network access. The live-API tests are skipped under `-short`.
+
+### Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to
+`main` and every pull request: `gofmt`, `go vet ./...`, then
+`go test -short -race` on everything except `tests/bench`. To keep the billed
+minutes low, it runs on one Linux runner and skips the live-API tests
+(`-short`). Changes that only touch documentation don't trigger it, and a new
+push cancels the run it replaces. The benchmarks are type-checked by `go vet`
+but never run in CI.
+
+[`.github/workflows/release.yml`](.github/workflows/release.yml) publishes a
+GitHub release when a version tag is pushed, after running the same checks on
+the tagged commit. Tags with a suffix, such as `v0.2.0-rc.1`, become
+pre-releases:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ### Benchmarks
 

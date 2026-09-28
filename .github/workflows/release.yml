@@ -1,0 +1,39 @@
+name: Release
+
+# Pushing a version tag publishes a GitHub release, once the same checks as CI
+# pass on the tagged commit:
+#
+#   git tag v0.1.0
+#   git push origin v0.1.0
+#
+# A tag with a suffix, such as v0.2.0-rc.1, is published as a pre-release.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Publish release
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          flags=(--repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes --title "$TAG")
+          if [[ "$TAG" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$TAG" "${flags[@]}"

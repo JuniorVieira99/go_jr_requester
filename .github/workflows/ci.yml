@@ -1,0 +1,66 @@
+name: CI
+
+# Kept deliberately cheap, since GitHub bills by the minute:
+#   - one Linux runner, the cheapest kind;
+#   - -short skips the tests that call a live public API;
+#   - tests/bench is compiled by `go vet` so it cannot rot, but never run;
+#   - documentation-only changes do not trigger a run at all;
+#   - a newer push to the same branch cancels the run still in progress.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "**.MD"
+      - "docs/**"
+      - ".vscode/**"
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "**.MD"
+      - "docs/**"
+      - ".vscode/**"
+  # Lets the release workflow run the same checks before publishing.
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          # There is no go.sum (no third-party dependencies), so key the build
+          # cache on go.mod instead.
+          cache-dependency-path: go.mod
+
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        # Covers every package, benchmarks included: they are type-checked
+        # here even though they are never run.
+        run: go vet ./...
+
+      - name: Test
+        # Everything except tests/bench, with the race detector on.
+        run: go test -short -race -count=1 -timeout 5m $(go list ./... | grep -v /tests/bench)
