@@ -342,26 +342,13 @@ func TestMetricsCloneIsSafe(t *testing.T) {
 
 // TestWarmUpOpensDistinctConns checks the pool really gets connNumber sockets.
 func TestWarmUpOpensDistinctConns(t *testing.T) {
-	var mtx sync.Mutex
-	conns := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
-		if state == http.StateNew {
-			mtx.Lock()
-			conns++
-			mtx.Unlock()
-		}
-	}
-	defer server.Close()
+	server, conns := serveCountingConns(t, func(w http.ResponseWriter, r *http.Request) {})
 
 	c := newTestConn(t, false, nil)
 	if err := c.ConnectionWarmUp(context.Background(), server.URL, 4); err != nil {
 		t.Fatal(err)
 	}
-	mtx.Lock()
-	got := conns
-	mtx.Unlock()
-	if got != 4 {
+	if got := conns.Load(); got != 4 {
 		t.Fatalf("connections opened = %d, want 4", got)
 	}
 	if c.Status() != requester.Connected {
@@ -377,10 +364,7 @@ func TestWarmUpOpensDistinctConns(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Close()
-	mtx.Lock()
-	got = conns
-	mtx.Unlock()
-	if got != 5 {
+	if got := conns.Load(); got != 5 {
 		t.Fatalf("after Close, connections = %d, want 5 (pool was not dropped)", got)
 	}
 }

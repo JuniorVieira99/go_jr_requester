@@ -2,8 +2,10 @@ package tests
 
 import (
 	requester "jr_requester/jr_requester"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 )
 
@@ -37,6 +39,22 @@ func serve(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 	return server
+}
+
+// serveCountingConns is serve plus a count of the TCP connections the server
+// accepts. ConnState is set before Start, because the accept loop reads it.
+func serveCountingConns(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *atomic.Int64) {
+	t.Helper()
+	var conns atomic.Int64
+	server := httptest.NewUnstartedServer(handler)
+	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			conns.Add(1)
+		}
+	}
+	server.Start()
+	t.Cleanup(server.Close)
+	return server, &conns
 }
 
 // closeBodies releases every response a batch handed back.

@@ -7,12 +7,10 @@ import (
 	"io"
 	requester "jr_requester/jr_requester"
 	"log"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"testing"
 )
 
@@ -245,15 +243,9 @@ func TestResponseStreamAndSave(t *testing.T) {
 // TestResponseCloseReturnsConnection is the point of the whole wrapper: closing
 // without reading must still put the connection back in the pool.
 func TestResponseCloseReturnsConnection(t *testing.T) {
-	var conns int
-	server := serve(t, func(w http.ResponseWriter, r *http.Request) {
+	server, conns := serveCountingConns(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write(bytes.Repeat([]byte("y"), 2048))
 	})
-	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
-		if state == http.StateNew {
-			conns++
-		}
-	}
 
 	c := newTestConn(t, false, nil)
 	for range 5 {
@@ -267,8 +259,8 @@ func TestResponseCloseReturnsConnection(t *testing.T) {
 		}
 	}
 
-	if conns != 1 {
-		t.Fatalf("opened %d connections for 5 requests; Close did not drain the body", conns)
+	if n := conns.Load(); n != 1 {
+		t.Fatalf("opened %d connections for 5 requests; Close did not drain the body", n)
 	}
 }
 
@@ -386,24 +378,12 @@ func TestTLSVerificationOnByDefault(t *testing.T) {
 	resp.Close()
 }
 
-// countConns counts the TCP connections a test server accepts.
-func countConns(server *httptest.Server) *atomic.Int64 {
-	var conns atomic.Int64
-	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
-		if state == http.StateNew {
-			conns.Add(1)
-		}
-	}
-	return &conns
-}
-
 // TestDiscardReturnsLargeBodyConnection checks Discard drains past the 64 KiB
 // that Close stops at, so a large unread body still keeps its connection.
 func TestDiscardReturnsLargeBodyConnection(t *testing.T) {
-	server := serve(t, func(w http.ResponseWriter, r *http.Request) {
+	server, conns := serveCountingConns(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write(bytes.Repeat([]byte("z"), 1<<20))
 	})
-	conns := countConns(server)
 
 	c := newTestConn(t, false, nil)
 	for range 3 {
@@ -423,10 +403,9 @@ func TestDiscardReturnsLargeBodyConnection(t *testing.T) {
 // TestDiscardSkipsBodyOverLimit checks a body declared larger than
 // MaxResponseBodySize is not read at all: the connection is dropped instead.
 func TestDiscardSkipsBodyOverLimit(t *testing.T) {
-	server := serve(t, func(w http.ResponseWriter, r *http.Request) {
+	server, conns := serveCountingConns(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Write(bytes.Repeat([]byte("z"), 256<<10))
 	})
-	conns := countConns(server)
 
 	c := newTestConn(t, false, func(s *requester.ConnSettings) { s.SetMaxResponseBodySize(1024) })
 	for range 2 {
